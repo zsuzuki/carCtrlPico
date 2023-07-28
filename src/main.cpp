@@ -73,22 +73,64 @@ packetHandler(uint8_t packetType, uint16_t channel, uint8_t* packet, uint16_t si
   case RFCOMM_DATA_PACKET:
 
   {
-    int accel = 0;
-    int steer = 0;
+    int  accel     = 0;
+    int  steer     = 0;
+    bool procAccel = false;
+    bool procSteer = false;
 
     for (i = 0; i < size; i++)
     {
       int p = packet[i];
       if (p & 0x10)
-        steer = p & 0xf;
+      {
+        steer     = p & 0xf;
+        procSteer = true;
+      }
       else
-        accel = p & 0xf;
+      {
+        accel     = p & 0xf;
+        procAccel = true;
+      }
     }
 
-    gpio_put(2, (accel & 0x3) ? 1 : 0);
-    gpio_put(5, (accel & 0xc) ? 1 : 0);
-    gpio_put(6, (steer & 0x3) ? 1 : 0);
-    gpio_put(9, (steer & 0xc) ? 1 : 0);
+    static int outA0 = 0;
+    static int outA1 = 0;
+    static int outS0 = 0;
+    static int outS1 = 0;
+    if (procAccel)
+    {
+      int oa0 = (accel & 0x3) ? 1 : 0;
+      int oa1 = (accel & 0xc) ? 1 : 0;
+      if (oa0 != outA0)
+        outA0 = oa0;
+      if (oa1 != outA1)
+        outA1 = oa1;
+    }
+    if (procSteer)
+    {
+      int os0 = (steer & 0x3) ? 1 : 0;
+      int os1 = (steer & 0xc) ? 1 : 0;
+      if (os0 != outS0)
+        outS0 = os0;
+      if (os1 != outS1)
+        outS1 = os1;
+    }
+    gpio_put(2, outA0);
+    gpio_put(5, outA1);
+    if (outA0 || outA1)
+    {
+      gpio_put(4, 0);
+      gpio_put(3, 0);
+    }
+    else
+    {
+      gpio_put(4, outS0);
+      gpio_put(3, outS1);
+    }
+    gpio_put(6, 0);
+    gpio_put(9, 0);
+    gpio_put(8, 0);
+    gpio_put(7, 0);
     {
       static int n = 0;
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, n & 1);
@@ -172,11 +214,28 @@ main()
   gpio_init(5);
   gpio_init(6);
   gpio_init(9);
+  gpio_init(4);
+  gpio_init(3);
+  gpio_init(8);
+  gpio_init(7);
 
   gpio_set_dir(2, GPIO_OUT);
   gpio_set_dir(5, GPIO_OUT);
   gpio_set_dir(6, GPIO_OUT);
   gpio_set_dir(9, GPIO_OUT);
+  gpio_set_dir(4, GPIO_OUT);
+  gpio_set_dir(3, GPIO_OUT);
+  gpio_set_dir(8, GPIO_OUT);
+  gpio_set_dir(7, GPIO_OUT);
+
+  gpio_put(2, 0);
+  gpio_put(5, 0);
+  gpio_put(4, 0);
+  gpio_put(3, 0);
+  gpio_put(6, 0);
+  gpio_put(9, 0);
+  gpio_put(8, 0);
+  gpio_put(7, 0);
 
   one_shot_timer_setup();
   spp_service_setup();
